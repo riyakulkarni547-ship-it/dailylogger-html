@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Logger</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #242833;
+    --border: #2a2e3a; --text: #e4e4e7; --muted: #71717a;
+    --primary: #6366f1; --primary-h: #818cf8;
+    --success: #22c55e; --warn: #f59e0b; --err: #ef4444;
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 16px; min-height: 100vh; max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .sub { font-size: 12px; color: var(--muted); margin: 4px 0 20px; line-height: 1.5; }
+  .setup { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .setup h2 { font-size: 16px; margin-bottom: 8px; text-align: center; }
+  .setup p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; text-align: center; }
+  .setup input { width: 100%; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 16px; text-align: center; font-family: var(--mono); }
+  .setup input:focus { outline: none; border-color: var(--primary); }
+  .setup button, .step-btn { margin-top: 14px; width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+  .setup button:hover, .step-btn:hover { background: var(--primary-h); }
+  .setup .hint { font-size: 11px; color: var(--muted); margin-top: 12px; text-align: center; line-height: 1.5; }
+  .code-display { font-size: 32px; font-family: var(--mono); letter-spacing: 6px; text-align: center; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--primary); margin: 12px 0; }
+
+  .app { display: none; }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 14px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+  .dot.off { background: var(--err); }
+  .actions { display: flex; gap: 8px; margin: 12px 0 20px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: none; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; transition: 0.15s; }
+  .btn-p { background: var(--primary); color: #fff; }
+  .btn-p:hover { background: var(--primary-h); }
+  .btn-s { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-s:hover { background: var(--surface2); }
+  .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .list-head h2 { font-size: 14px; }
+  .list-head span { font-size: 11px; color: var(--muted); }
+  .entries { display: flex; flex-direction: column; gap: 8px; }
+  .entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .entry:hover { border-color: var(--primary); }
+  .e-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .e-time { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .e-dev { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: var(--surface2); color: var(--muted); }
+  .e-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .e-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+  .empty i { font-size: 28px; margin-bottom: 8px; display: block; opacity: 0.4; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+
+  /* Phone setup page */
+  .phone-setup { display: none; max-width: 500px; margin: 0 auto; }
+  .phone-setup h1 { justify-content: center; margin-bottom: 8px; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; margin-right: 8px; }
+  .step h3 { font-size: 14px; display: flex; align-items: center; margin-bottom: 8px; }
+  .step p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .step a { color: var(--primary); text-decoration: none; }
+  .step a:hover { text-decoration: underline; }
+  .webhook-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 10px; font-family: var(--mono); font-size: 11px; word-break: break-all; color: var(--success); user-select: all; }
+  .copy-btn { margin-top: 8px; padding: 10px; width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; text-align: center; }
+  .copy-btn:active { background: var(--primary); color: #fff; }
+  .done-note { text-align: center; margin-top: 16px; font-size: 12px; color: var(--success); }
+  .done-note i { margin-right: 4px; }
+
+  /* Auto-setup screen */
+  .auto-setup { text-align: center; padding: 40px 20px; }
+  .auto-setup i { font-size: 48px; color: var(--primary); margin-bottom: 16px; display: block; animation: spin 2s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .auto-setup h2 { font-size: 18px; margin-bottom: 8px; }
+  .auto-setup p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+  @media (max-width: 480px) {
+    body { padding: 12px; }
+    .btn { padding: 12px 14px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== AUTO-SETUP SCREEN (Phone) ========== -->
+<div id="autoSetupScreen" class="auto-setup">
+  <i class="fa-solid fa-spinner"></i>
+  <h2>Setting up...</h2>
+  <p id="setupStatus">Connecting to your PC...</p>
+</div>
+
+<!-- ========== PC: SETUP SCREEN ========== -->
+<div id="setupScreen" style="display:none">
+  <h1><i class="fa-solid fa-clipboard-list"></i> Daily Logger</h1>
+  <p class="sub">System-wide clipboard capture from phone → view on PC</p>
+
+  <div class="setup" id="viewerSetup">
+    <h2><i class="fa-solid fa-desktop"></i> PC Setup</h2>
+    <p>Pick a passphrase to create your private channel.</p>
+    <input type="text" id="passInput" placeholder="e.g. [PASSWORD]" autocomplete="off">
+    <button onclick="setupViewer()"><i class="fa-solid fa-check"></i> Connect</button>
+  </div>
+
+  <div class="setup" id="viewerReady" style="display:none;">
+    <h2>✅ Connected!</h2>
+    <p>Now download the phone setup page and send it to your phone:</p>
+    <button onclick="downloadPhoneFile()"><i class="fa-solid fa-mobile-screen"></i> Download Phone Setup</button>
+    <p class="hint" style="margin-top:14px">Send the downloaded file to your phone (WhatsApp, email, etc).<br>Open it on the phone → follow 2 quick steps → done forever.</p>
+    <button onclick="enterViewer()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);margin-top:10px"><i class="fa-solid fa-arrow-right"></i> Go to Viewer</button>
+  </div>
+</div>
+
+<!-- ========== PC: VIEWER APP ========== -->
+<div class="app" id="app">
+  <h1 style="margin-bottom:14px"><i class="fa-solid fa-clipboard-list"></i> Daily Logger</h1>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="statusLabel">Connected — auto-sync 5s</span>
+  </div>
+  <div class="actions">
+    <button class="btn btn-s" onclick="doSync()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+    <button class="btn btn-s" onclick="exportLog()"><i class="fa-solid fa-download"></i> Export</button>
+    <button class="btn btn-s" onclick="downloadPhoneFile()"><i class="fa-solid fa-mobile-screen"></i> Phone Setup</button>
+    <button class="btn btn-s" onclick="resetAll()"><i class="fa-solid fa-gear"></i></button>
+  </div>
+  <div class="list-head">
+    <h2>Today's Log</h2>
+    <span id="count">0 entries</span>
+  </div>
+  <div class="entries" id="entries">
+    <div class="empty"><i class="fa-solid fa-inbox"></i><p>No entries yet — set up your phone to start capturing</p></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FB_URL = 'https://dailylogger-sync-default-rtdb.firebaseio.com';
+let roomKey = '';
+let entries = [];
+let syncInterval = null;
+let isPhoneSetup = false;
+
+function sGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+function sSet(k,v) { try { localStorage.setItem(k,v); } catch(e) {} }
+function sRemove(k) { try { localStorage.removeItem(k); } catch(e) {} }
+
+async function hashPass(pass) {
+  const data = new TextEncoder().encode(pass.trim().toLowerCase());
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0,24);
+}
+
+// === AUTO-SETUP FOR PHONE ===
+async function autoSetupPhone() {
+  isPhoneSetup = true;
+  const status = document.getElementById('setupStatus');
+
+  try {
+    // Generate random passphrase
+    const randomPass = 'auto_' + Math.random().toString(36).substr(2, 8);
+    roomKey = await hashPass(randomPass);
+    sSet('dl_roomkey', roomKey);
+    sSet('dl_passphrase', randomPass);
+
+    status.textContent = '✅ Connected! Closing in 3 seconds...';
+    status.style.color = 'var(--success)';
+
+    // Auto-close after 3 seconds
+    setTimeout(() => {
+      window.close();
+    }, 3000);
+
+  } catch(error) {
+    status.textContent = '❌ Setup failed. Try again.';
+    status.style.color = 'var(--err)';
+  }
+}
+
+// === Boot ===
+async function boot() {
+  const savedKey = sGet('dl_roomkey');
+
+  // Check if this is phone setup (auto-setup mode)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('setup') === 'phone' || urlParams.get('mode') === 'phone') {
+    autoSetupPhone();
+    return;
+  }
+
+  if (savedKey) {
+    roomKey = savedKey;
+    document.getElementById('autoSetupScreen').style.display = 'none';
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    doSync();
+    startAutoSync();
+    return;
+  }
+
+  // Show PC setup
+  document.getElementById('autoSetupScreen').style.display = 'none';
+  document.getElementById('setupScreen').style.display = 'block';
+}
+
+// === Setup ===
+async function setupViewer() {
+  const pass = document.getElementById('passInput').value.trim();
+  if (!pass) { toast('Enter a passphrase'); return; }
+  roomKey = await hashPass(pass);
+  sSet('dl_roomkey', roomKey);
+  document.getElementById('viewerSetup').style.display = 'none';
+  document.getElementById('viewerReady').style.display = 'block';
+}
+
+function enterViewer() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  doSync();
+  startAutoSync();
+}
+
+// === Generate Phone Setup HTML ===
+function downloadPhoneFile() {
+  const webhookUrl = `${FB_URL}/logs/${roomKey}/__DATE__/__ID__.json`;
+  const directPushUrl = `${FB_URL}/logs/${roomKey}/`;
+  const autoSetupLink = window.location.href.split('?') + '?setup=phone';
+
+  const phoneHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logger Setup</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#242833;--border:#2a2e3a;--text:#e4e4e7;--muted:#71717a;--primary:#6366f1;--success:#22c55e;--radius:10px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:'SF Mono','Fira Code',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);padding:16px;max-width:500px;margin:0 auto}
+h1{font-size:18px;font-weight:700;text-align:center;margin-bottom:6px}
+.sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:20px}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:700;margin-right:8px}
+.step h3{font-size:14px;display:flex;align-items:center;margin-bottom:8px}
+.step p{font-size:13px;color:var(--muted);line-height:1.6}
+.step a{color:var(--primary);text-decoration:none;font-weight:600}
+.store-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;width:100%}
+.webhook-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;font-family:var(--mono);font-size:10px;word-break:break-all;color:var(--success);-webkit-user-select:all;user-select:all}
+.copy-btn{margin-top:8px;padding:12px;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;text-align:center}
+.copy-btn:active{background:var(--primary);color:#fff}
+.done{text-align:center;margin-top:20px;padding:16px;background:var(--surface);border:1px solid var(--success);border-radius:var(--radius)}
+.done p{font-size:13px;color:var(--success)}
+.alt{margin-top:16px;text-align:center;font-size:11px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+<h1><i class="fa-solid fa-mobile-screen"></i> Phone Setup</h1>
+<p class="sub">One-time setup — takes 2 minutes</p>
+
+<div class="step">
+<h3><span class="step-num">1</span> Install Clipboard App</h3>
+<p>Install <b>Automate</b> (free) from the Play Store. It runs in the background and monitors your clipboard.</p>
+<a href="https://play.google.com/store/apps/details?id=com.llamalab.automate" class="store-btn" target="_blank">
+<i class="fa-brands fa-google-play"></i> Install Automate (Free)
+</a>
+<p style="margin-top:10px;font-size:11px;color:var(--muted)"><b>Alternative:</b> <a href="https://play.google.com/store/apps/details?id=net.dinglisch.android.taskerm" style="color:var(--primary)">Tasker</a> (paid) also works.</p>
+</div>
+
+<div class="step">
+<h3><span class="step-num">2</span> Set Up the Flow</h3>
+<p>In Automate, create a new flow (or import the one below) with these blocks:</p>
+<p style="margin-top:8px;font-size:12px;color:var(--text);line-height:1.8">
+<b>Trigger:</b> Clipboard Changed<br>
+<b>Action:</b> HTTP Request → PUT<br>
+<b>URL:</b> <i>(use the webhook below — replace <code>__DATE__</code> with today's date and <code>__ID__</code> with a unique ID)</i>
+</p>
+<p style="margin-top:10px;font-size:12px;color:var(--text)"><b>Or simpler — use this URL pattern:</b></p>
+<div class="webhook-box" id="webhook">${directPushUrl}</div>
+<button class="copy-btn" onclick="copyWebhook()"><i class="fa-solid fa-copy"></i> Copy Webhook URL</button>
+
+<p style="margin-top:14px;font-size:12px;color:var(--text);line-height:1.8">
+<b>Automate flow logic:</b><br>
+1. <code>Clipboard changed</code> → get clip text<br>
+2. <code>HTTP request</code>: PUT to<br>
+<code style="font-size:10px;color:var(--success)">${directPushUrl}{date}/{id}.json</code><br>
+Body: <code>{"id":"e{timestamp}","text":"{clip}","device":"📱","ts":{timestamp},"time":"{iso}"}</code><br>
+3. Loop back to step 1
+</p>
+</div>
+
+<div class="done">
+<p><i class="fa-solid fa-check-circle"></i> Once set up, close this page. Everything runs in the background automatically.</p>
+</div>
+
+<div class="alt">
+<b>Manual fallback:</b> If you just want to send something quickly right now,<br>
+paste below and tap Send:<br>
+<textarea id="manualInput" style="width:100%;margin-top:8px;padding:10px;min-height:60px;background:#1a1d27;border:1px solid #2a2e3a;border-radius:8px;color:#e4e4e7;font-size:14px;font-family:inherit;resize:vertical" placeholder="Paste here..."></textarea>
+<button onclick="manualSend()" style="margin-top:8px;padding:12px;width:100%;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer"><i class="fa-solid fa-paper-plane"></i> Send to PC</button>
+<p id="sendStatus" style="margin-top:8px;color:#22c55e;font-size:12px"></p>
+</div>
+
+<script>
+const FB='${FB_URL}';
+const KEY='${roomKey}';
+
+function copyWebhook(){
+  const el=document.getElementById('webhook');
+  navigator.clipboard.writeText(el.textContent);
+  el.style.borderColor='#22c55e';
+  setTimeout(()=>el.style.borderColor='#2a2e3a',1500);
+}
+
+function manualSend(){
+  const inp=document.getElementById('manualInput');
+  const text=inp.value.trim();
+  if(!text)return;
+  const today=new Date().toISOString().slice(0,10);
+  const id='e'+Date.now();
+  fetch(FB+'/logs/'+KEY+'/'+today+'/'+id+'.json',{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:id,text:text,device:'\\u{1F4F1}',ts:Date.now(),time:new Date().toISOString()})
+  }).then(r=>{
+    if(r.ok){document.getElementById('sendStatus').textContent='\\u2705 Sent!';inp.value='';}
+    else{document.getElementById('sendStatus').textContent='\\u274c Failed';}
+  }).catch(()=>{document.getElementById('sendStatus').textContent='\\u274c Network error';});
+}
+
+document.addEventListener('paste',(e)=>{
+  if(e.target.id==='manualInput')return;
+  const text=e.clipboardData.getData('text');
+  if(text&&text.trim()){
+    const today=new Date().toISOString().slice(0,10);
+    const id='e'+Date.now();
+    fetch(FB+'/logs/'+KEY+'/'+today+'/'+id+'.json',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:id,text:text.trim(),device:'\\u{1F4F1}\\u{1F4CB}',ts:Date.now(),time:new Date().toISOString()})
+    });
+  }
+});
+<\\/script>
+</body></html>`;
+
+  const blob = new Blob([phoneHtml.replace(/<\\\\/script>/g, '<\/script>')], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'phone-logger-setup.html';
+  a.click();
+  toast('📱 Phone setup file downloaded!');
+}
+
+// === Sync ===
+async function doSync() {
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetch(`${FB_URL}/logs/${roomKey}/${today}.json`);
+    if (!res.ok) throw new Error('fail');
+    const data = await res.json();
+    entries = data ? Object.values(data).sort((a,b) => b.ts - a.ts) : [];
+    render();
+    setOnline(true);
+  } catch(e) { setOnline(false); }
+}
+
+function startAutoSync() {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(doSync, 5000);
+}
+
+// === Render ===
+function render() {
+  const el = document.getElementById('entries');
+  document.getElementById('count').textContent = entries.length + ' entries';
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty"><i class="fa-solid fa-inbox"></i><p>No entries yet — set up your phone to start capturing</p></div>';
+    return;
+  }
+  el.innerHTML = entries.map(e => {
+    const t = new Date(e.time||e.ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    return `<div class="entry">
+      <div class="e-meta"><span class="e-time">${t}</span><span class="e-dev">${esc(e.device||'')}</span></div>
+      <div class="e-text">${esc(e.text)}</div>
+      <div class="e-actions">
+        <button class="btn btn-s" style="padding:5px 8px;font-size:11px" onclick="copyText('${e.id}')"><i class="fa-solid fa-copy"></i></button>
+        <button class="btn btn-s" style="padding:5px 8px;font-size:11px;color:var(--err)" onclick="removeEntry('${e.id}')"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function removeEntry(id) {
+  try { const today = new Date().toISOString().slice(0,10); await fetch(`${FB_URL}/logs/${roomKey}/${today}/${id}.json`, {method:'DELETE'}); } catch(e){}
+  entries = entries.filter(e => e.id !== id); render();
+}
+
+function copyText(id) { const e = entries.find(x => x.id === id); if (e) { navigator.clipboard.writeText(e.text); toast('Copied!'); } }
+function resetAll() { if (confirm('Reset?')) { sRemove('dl_roomkey'); window.location.reload(); } }
+function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function setOnline(on) { document.getElementById('dot').classList.toggle('off', !on); document.getElementById('statusLabel').textContent = on ? 'Connected — auto-sync 5s' : 'Offline...'; }
+function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+function exportLog() {
+  if (!entries.length) { toast('Nothing to export'); return; }
+  const d = new Date().toISOString().slice(0,10);
+  let txt = `Daily Log — ${d}
+${'='.repeat(50)}
+
+`;
+  entries.slice().reverse().forEach(e => {
+    const t = new Date(e.time||e.ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    txt += `[${t}] [${e.device}]
+${e.text}
+
+`;
+  });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
+  a.download = `daily-log-${d}.txt`; a.click();
+}
+
+boot();
+</script>
+</body>
+</html>
